@@ -1,0 +1,77 @@
+---
+title: "Lotto numbers"
+format: html
+editor: visual
+---
+
+```{r}
+library(httr)
+library(rvest)
+library(stringr)
+library(ggplot2)
+
+get_lotto_numbers <- function(drwNo) {
+  url <- 'https://www.dhlottery.co.kr/gameResult.do?method=byWin'
+  
+  data_lotto <- POST(
+    url,
+    body = list(
+      drwNo = as.character(drwNo),
+      dwrNoList = as.character(drwNo)
+    )
+  )
+  
+  data_lotto_html <- data_lotto %>% read_html()
+  
+  numbers <- data_lotto_html %>%
+    html_nodes('.num.win') %>%
+    html_text() %>%
+    str_extract_all('\\d+') %>%
+    unlist()
+  
+  return(as.numeric(numbers))
+}
+
+
+lotto_data <- data.frame(
+  drwNo = integer(),
+  num1 = integer(),
+  num2 = integer(),
+  num3 = integer(),
+  num4 = integer(),
+  num5 = integer(),
+  num6 = integer()
+)
+
+for (i in 900:1124) {
+  Sys.sleep(2)
+  numbers <- get_lotto_numbers(i)
+  lotto_data <- rbind(lotto_data, data.frame(drwNo = i, t(numbers)))
+}
+```
+
+## Lotto numbers
+
+로또는 약 45개의 번호 중에서 6개의 당첨번호를 맞추면 개수에 따라 상금을 가져가는 한국의 추첨게임의 일종이다. 매주 토요일 저녁 9시 경에 번호를 발표한다.
+
+## Data Analysis
+
+임의 추출에서 시행을 반복할수록 각각의 경우에 대한 확률은 전체 경우의 수 n에 대해 1/n에 수렴한다는 것을 확인해보기 위해 최근 약 4년치의 회차에 대해 당첨번호를 분석해 보았다. 전체 회차를 하기에는 Sys.sleep(2) 때문에 너무 오래 걸려 비교적 최근 경향을 알아보고자 했다.
+
+```{r}
+
+numbers <- unlist(lotto_data[,-1])
+number_freq <- as.data.frame(table(factor(numbers, levels = 1:45)))
+colnames(number_freq) <- c("number", "frequency")
+
+
+graph <- ggplot(number_freq, aes(x = number, y = frequency)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  scale_x_discrete(drop = FALSE) +
+  theme_minimal() +
+  labs(title = "Lotto Number Frequencies",
+       x = "Lotto Number",
+       y = "Frequency")
+
+print(graph)
+```
